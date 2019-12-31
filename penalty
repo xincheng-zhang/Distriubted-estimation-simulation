@@ -1,0 +1,196 @@
+library(MASS)
+####################################################################
+##预备部分，先自定义后续需要的函数,及构造邻接矩阵------------------------
+
+##---------------生成真实值---------------
+
+
+set.seed(123)
+w.star<-sample(1:10,size = 5)
+w.star
+## ground truth:2  4  5  3  1
+
+##---------------生成真实值---------------
+
+
+##---------------计算内积---------------
+fun1<-function(data){
+  n<-length(data)
+  result<-0
+  for(i in 1:n){
+    result<-result+data[i]^2
+  }
+  result
+}
+
+##---------------计算f的梯度---------------
+fun2<-function(omiga,y,x,w){
+  omiga.solve<-solve(omiga)
+  -t(x)%*%omiga.solve%*%y+t(x)%*%omiga.solve%*%x%*%w
+}
+
+##---------------计算2范数---------------
+fun3<-function(w){
+  sum((w-w.star)^2)
+}
+
+
+
+##---------------构造邻接矩阵---------------
+##--------- ---simulation 3 ------------
+##r=0.6  
+adj3.mat<-matrix(0,nrow = 20,ncol = 20)
+c3<-(19:13)
+for(i in 1:7){
+  for (j in 1:c3[i]) {
+    adj3.mat[j,j+20-c3[i]]<-1
+  }
+}
+
+sample3<-sample(9:20,2,replace = F)
+for(i in 1:2){
+  adj3.mat[1,sample3[i]]<-1
+}
+
+
+##补齐对称阵
+for(i in 1:20){
+  for(j in 1:20){
+    adj3.mat[j,i]<-adj3.mat[i,j]
+  }
+}
+
+##------------------------预备部分----------------------------
+##############################################################
+##------------------------simulation 3------------------------
+## 生成需要的模拟数据
+set.seed(123)
+sigma1<-runif(20,0.001,0.1)  ##用于生成局部噪声的总体标准差
+sigma1
+
+
+##生成20组local X,individual noise
+for(i in 1:20){
+  nam.x<-paste("x",i,sep = "")
+  assign(nam.x,matrix(rnorm(50,1,0.01),nrow = 10,ncol = 5)) ## generate X
+  nam.e<-paste("e",i,sep = "")
+  assign(nam.e,matrix(rnorm(10,0,sigma1[i]^2)))  ##generate individual noise
+}
+
+
+
+##生成公共噪声的系数矩阵
+d.diag.trace<-1:20  #用于存储公共噪声系数对角阵平方
+for(i in 1:20){
+  nam.d<-paste("d",i,sep = "")
+  d.diag<-runif(20,0.003,0.3)
+  d.diag.trace[i]<-sum(d.diag)^2
+  assign(nam.d,diag(d.diag,ncol = 10))
+}
+
+##通过多元正态分布抽样构造公共噪声
+set.seed(123)
+sigma<-diag(1,nrow = 10,ncol = 10)  ##生成10阶单位阵
+common.local.noise<-mvrnorm(n=10,rep(0,10),sigma)
+common.noise<-common.local.noise[,10]
+
+##y.caculate 用于生成y的观测
+y.caculate<-function(x,e,d){
+  x%*%w.star+e+d%*%common.noise
+}
+y1<-y.caculate(x1,e1,d1)
+y2<-y.caculate(x2,e2,d2)
+y3<-y.caculate(x3,e3,d3)
+y4<-y.caculate(x4,e4,d4)
+y5<-y.caculate(x5,e5,d5)
+y6<-y.caculate(x6,e6,d6)
+y7<-y.caculate(x7,e7,d7)
+y8<-y.caculate(x8,e8,d8)
+y9<-y.caculate(x9,e9,d9)
+y10<-y.caculate(x10,e10,d10)
+y11<-y.caculate(x11,e11,d11)
+y12<-y.caculate(x12,e12,d12)
+y13<-y.caculate(x13,e13,d13)
+y14<-y.caculate(x14,e14,d14)
+y15<-y.caculate(x15,e15,d15)
+y16<-y.caculate(x16,e16,d16)
+y17<-y.caculate(x17,e17,d17)
+y18<-y.caculate(x18,e18,d18)
+y19<-y.caculate(x19,e19,d19)
+y20<-y.caculate(x20,e20,d20)
+
+##----------------------------##-----------------------------
+##生成理想状态下omiga 局部方差
+omiga.generate<-function(x,d){
+  diag(x,nrow = 10)+d^2
+}
+
+omiga1<-omiga.generate(sigma1[1],d1)
+omiga2<-omiga.generate(sigma1[2],d2)
+omiga3<-omiga.generate(sigma1[3],d3)
+omiga4<-omiga.generate(sigma1[4],d4)
+omiga5<-omiga.generate(sigma1[5],d5)
+omiga6<-omiga.generate(sigma1[6],d6)
+omiga7<-omiga.generate(sigma1[7],d7)
+omiga8<-omiga.generate(sigma1[8],d8)
+omiga9<-omiga.generate(sigma1[9],d9)
+omiga10<-omiga.generate(sigma1[10],d10)
+omiga11<-omiga.generate(sigma1[11],d11)
+omiga12<-omiga.generate(sigma1[12],d12)
+omiga13<-omiga.generate(sigma1[13],d13)
+omiga14<-omiga.generate(sigma1[14],d14)
+omiga15<-omiga.generate(sigma1[15],d15)
+omiga16<-omiga.generate(sigma1[16],d16)
+omiga17<-omiga.generate(sigma1[17],d17)
+omiga18<-omiga.generate(sigma1[18],d18)
+omiga19<-omiga.generate(sigma1[19],d19)
+omiga20<-omiga.generate(sigma1[20],d20)
+
+
+##-----------------------------##-----------------------------
+omiga.trace<-1:20
+for(i in 1:20){
+  omiga.trace[i]<-d.diag.trace[i]+sigma1[i]^2
+}
+
+
+gama<-10^(-8)
+w.star<-c(3,8,4,7,6)
+
+l.range<-seq(0,0.9999,length=1000)
+X_data<-rbind(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16,x17,x18,x19,x20)
+y_data<-rbind(y1,y2,y3,y4,y5,y6,y7,y8,y9,y10,y11,y12,y13,y14,y15,y16,y17,y18,y19,y20)
+omiga_data<-rbind(omiga1,omiga2,omiga3,omiga4,omiga5,omiga6,omiga7,omiga8,omiga9,omiga10,omiga11,omiga12,omiga13,omiga14,omiga15,omiga16,omiga17,omiga18,omiga19,omiga20)
+e_data<-rbind(e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15,e16,e17,e18,e19,e20)
+
+
+w.store<-matrix(0,nrow = 100,ncol = 1001)
+penalty.sim<-function(y_data,X_data,omiga_data,l,adj3.mat){
+  ##对每个节点生成随机初始值
+  for(i in 1:20){
+    w.store[(i-1)*5+1:5,1]<-sample(0:10,5)
+  }
+  a<-matrix(0,nrow = 20,ncol = 20)
+  for(i in 1:20){
+    for(j in 1:20){
+      a[i,j]<-adj3.mat[i,j]/omiga.trace[j]
+    }
+  }
+  for(j in 1:20){
+    for(i in 1:1000){
+      w.store[(j-1)*5+1:5,i+1]<-w.store[(j-1)*5+1:5,i]-gama*(-2*t(X_data[(j-1)*10+1:10,1:5])%*%solve(omiga_data[(j-1)*10+1:10,1:10])%*%y_data[(j-1)*10+1:10] +2*t(X_data[(j-1)*10+1:10,1:5] )%*%solve(omiga_data[(j-1)*10+1:10,1:10]) %*%X_data[(j-1)*10+1:10,1:5]%*%w.store[(j-1)*5+1:5,i]+2*(l/(1-l))*w.store[(j-1)*5+1:5,i]*sum(a[j,]))
+    }
+  }
+  w.trial<-numeric(20)
+  for(i in 1:20){
+    w.trial[i]<-fun3(w.store[(i-1)*5+1:5,1001])
+  }
+  w.final<-mean(w.trial)
+  w.final
+}
+
+b<-numeric(1000)
+for(i in 1:1000){
+  b[i]<-penalty.sim(y_data,X_data,omiga_data,l=l.range[i],adj3.mat)/55.57364
+}
+
