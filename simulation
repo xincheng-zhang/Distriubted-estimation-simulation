@@ -1,0 +1,164 @@
+library(MASS)
+#################################################################################################
+##------------------------预备部分，先自定义后续需要的函数,及构造邻接矩阵------------------------
+
+##---------------模拟真实值的函数---------------
+
+fun3<-function(w){
+  sum((w-w.star)^2)
+}
+
+##生成X
+data_create<-function(N){
+  x.data<-matrix(rnorm(50*N,1,0.01),nrow = 10*N,ncol = 5)
+}
+
+##生成局部噪声
+
+e_create<-function(N){
+  set.seed(123)
+  sigma1<-runif(N,0.001,0.1)
+  e.data<-matrix(0,nrow = 10*N,ncol = 1)
+  for(i in 1:N){
+    e.data[(i-1)*10+1:10]<-rnorm(10,0,sigma1[i]^2)
+  }
+  e.data
+}
+
+##生成公共噪声的系数矩阵
+##求迹
+diag.trace.create<-function(N){
+  diag.trace.data<-matrix(0,nrow =N,ncol = 1)
+  d.data<-matrix(0,nrow = 10*N,ncol = 10)
+  for(i in 1:N){
+    d.data[(i-1)*10+1:10,]<-runif(N,0.003,0.3)
+    diag.trace.data[i]<-sum(d.data[(i-1)*10+1:10,])
+  }
+  diag.trace.data
+}
+
+##生成对角阵
+diag_create<-function(N){
+  diag.data<-matrix(0,nrow = 10*N,ncol = 10)
+  for(i in 1:N){
+    diag.data[(i-1)*10+1:10,1:10]<-diag(runif(10,0.003,0.3),ncol = 10)
+  }
+  diag.data
+}
+
+##生成公共噪声
+set.seed(123)
+sigma<-diag(1,nrow = 10,ncol = 10)
+common.local.noise<-mvrnorm(n=10,rep(0,10),sigma)
+common.noise<-common.local.noise[,10]
+
+##生成总体噪声
+omiga.create<-function(N){
+  omiga.data<-matrix(0,nrow = N*10,ncol = 10)
+  diag.data<-diag_create(N)
+  set.seed(123)
+  sigma1<-runif(N,0.001,0.1)
+  for(i in 1:N){
+    omiga.data[(i-1)*10+1:10,1:10]<-diag.data[(i-1)*10+1:10,]%*%diag.data[(i-1)*10+1:10,]+diag(sigma1[i],nrow = 10)
+  }
+}
+
+omiga.create<-function(N){
+  omiga.data<-matrix(0,nrow = N*10,ncol = 10)
+  d<-diag_create(N)
+  e<-e_create(N)
+  for(i in 1:N){
+    omiga.data[(i-1)*10+1:10,1:10]<-d[(i-1)*10+1:10,1:10]%*%d[(i-1)*10+1:10,1:10]+diag(e[10*(i-1)+1:10],nrow = 10)
+  }
+  omiga.data
+}
+
+omiga.trace.create<-function(N){
+  set.seed(123)
+  sigma1<-runif(N,0.001,0.1)
+  omiga.trace<-1:N
+  d<-diag.trace.create(N)
+  for(i in 1:N){
+    omiga.trace[i]<-d[i]+sigma1[i]^2
+  }
+  omiga.trace
+}
+
+##生成y的数据
+y.create<-function(N){
+  y.data<-matrix(0,nrow = 10*N,ncol = 1)
+  x.data<-data_create(N)
+  e.data<-e_create(N)
+  diag.data<-diag_create(N)
+  y.data<-x.data%*%w.star+e.data+diag.data%*%common.noise
+}
+
+##生成邻接矩阵（可泛化使用）
+adj_create<-function(N,r){
+  adj.mat<-matrix(0,nrow = N,ncol = N) ##构建邻接矩阵
+  upper.node<-ceiling(0.5*(N*N-N)*r)  ##计算需要的节点
+  random<-matrix(0,nrow = 0.5*(N^2-N),ncol = 3) ##将二维压缩为一维直线上的抽样考虑
+  b<-numeric(N)
+  b[1]<-0
+  a<-(N-1):1
+  for(i in 2:N){
+    b[i]<-sum(a[1:i-1])
+  }
+  for(i in 1:(N-2)){
+    random[1+b[i]:b[i+1],1]<-i
+    random[1+b[i]:b[i+1],2]<-i:N
+  }
+  random[0.5*(N^2-N),1]<-N-1 ##注意，此处生成的矩阵第二列除了最后一个元素，其余的元素都需要加一修正
+  random[0.5*(N^2-N),2]<-N
+  for(i in 1:(0.5*(N^2-N)-1)){
+    random[i,2]<-random[i,2]+1
+  }
+  ##直线上的随机抽样
+  adj.samp<-sample(1:(0.5*(N^2-N)),upper.node,replace = F)
+  for(i in 1:upper.node){
+    m<-random[adj.samp[i],1]
+    n<-random[adj.samp[i],2]
+    adj.mat[m,n]<-1
+  }
+  for(i in 1:N){
+    for(j in 1:N){
+      adj.mat[j,i]<-adj.mat[i,j]
+    }
+  }
+  adj.mat
+}
+N=20
+gama<-10^(-8)
+w.star<-c(1,1,1,1,1)
+networksize.sim<-function(N,nabuda){
+  w.store<-matrix(0,nrow = 5*N,ncol = 1001)
+  y_data<-y.create(N)
+  X_data<-data_create(N)
+  omiga_data<-omiga.create(N)
+  omiga.trace<-omiga.trace.create(N)
+  adj.mat<-adj_create(N,0.6)
+  ##对每个节点生成随机初始值
+  for(i in 1:N){
+    w.store[(i-1)*5+1:5,1]<-sample(0:10,5)
+  }
+  a<-matrix(0,nrow = N,ncol = N)
+  for(i in 1:N){
+    for(j in 1:N){
+      a[i,j]<-adj.mat[i,j]/omiga.trace[j]
+    }
+  }
+  for(j in 1:N){
+    for(i in 1:1000){
+      w.store[(j-1)*5+1:5,i+1]<-w.store[(j-1)*5+1:5,i]-gama*(-2*t(X_data[(j-1)*10+1:10,1:5])%*%solve(omiga_data[(j-1)*10+1:10,1:10])%*%y_data[(j-1)*10+1:10] +2*t(X_data[(j-1)*10+1:10,1:5] )%*%solve(omiga_data[(j-1)*10+1:10,1:10]) %*%X_data[(j-1)*10+1:10,1:5]%*%w.store[(j-1)*5+1:5,i]+2*nabuda*w.store[(j-1)*5+1:5,i]*sum(a[j,]))
+    }
+  }
+  w.trial<-numeric(N)
+  for(i in 1:N){
+    w.trial[i]<-fun3(w.store[(i-1)*5+1:5,1001])
+  }
+  w.final<-mean(w.trial)
+  w.final
+}
+
+
+
